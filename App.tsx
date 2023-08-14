@@ -29,6 +29,20 @@ function App() {
   const [PaymentContract, setContract] = useState<payment>();
   const signerRef = useRef<SensiletSigner>();
   const [error, setError] = React.useState("");
+  
+  async function fetchContract() {
+    try {
+      const instance = await Scrypt.contractApi.getLatestInstance(
+        Voting,
+        contract_id
+      );
+      setContract(instance);
+    } catch (error: any) {
+      console.error("fetchContract error: ", error);
+      setError(error.message);
+    }
+  }
+  
   async function Deposit(e:any) {
     const signer = signerRef.current as SensiletSigner;
 
@@ -38,11 +52,17 @@ function App() {
         throw new Error(error);
       }
       await PaymentContract.connect(signer);
+      const nextInstance = PaymentContract.next();
       const studentPK = await signer.getDefaultPubKey();
       const depositAmount = 1n;
       PaymentContract.methods.deposit(depositAmount,
         (sigResps:SignatureResponse[]) => findSig(sigResps, studentPK),
-        studentPK)
+        studentPK,{
+          next:{
+            instance: nextInstance,
+            balance: PaymentContract.balance,
+          },
+        })
     }
   }
 
@@ -55,8 +75,15 @@ function App() {
         throw new Error(error);
       }
       await PaymentContract.connect(signer);
+      const nextInstance = PaymentContract.next();
       const studentPK = await signer.getDefaultPubKey();
-      PaymentContract.methods.destroy((sigResps:SignatureResponse[]) => findSig(sigResps, studentPK),studentPK)
+      PaymentContract.methods.destroy((sigResps:SignatureResponse[]) => findSig(sigResps, studentPK),studentPK,{
+        next:{
+          instance: nextInstance,
+          balance: PaymentContract.balance,
+        }
+      }
+      )
     }
   }
 
